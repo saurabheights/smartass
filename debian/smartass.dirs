@@ -1,0 +1,5 @@
+usr/lib/systemd/user
+etc/xdg/autostart
+usr/share/applications
+usr/share/icons/hicolor/scalable/apps
+usr/share/smartass/plugins

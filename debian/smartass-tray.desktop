@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Smartass
+Exec=/opt/smartass/venv/bin/python -m smartass.tray
+Icon=ai.talonic.smartass
+X-GNOME-Autostart-enabled=true
+OnlyShowIn=GNOME;Unity;
+NoDisplay=true

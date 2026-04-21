@@ -13,3 +13,8 @@ override_dh_virtualenv:
 		--builtin-venv \
 		--preinstall "wheel" \
 		--preinstall "setuptools>=68"
+
+override_dh_install:
+	dh_install
+	install -D -m 0644 assets/icons/smartass.svg \
+	  debian/smartass/usr/share/icons/hicolor/scalable/apps/ai.talonic.smartass.svg

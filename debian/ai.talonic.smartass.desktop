@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Smartass
+Comment=Smart assistant tray app
+Exec=/opt/smartass/venv/bin/python -m smartass.tray
+Icon=ai.talonic.smartass
+Terminal=false
+Categories=Utility;
+StartupNotify=false

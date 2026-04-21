@@ -1,0 +1,14 @@
+[Unit]
+Description=Smartass daemon (plugin host + D-Bus service)
+After=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=ai.talonic.Smartass
+ExecStart=/opt/smartass/venv/bin/python -m smartass.daemon
+Restart=on-failure
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

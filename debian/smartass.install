@@ -1,0 +1,4 @@
+debian/smartass-daemon.service  usr/lib/systemd/user/
+debian/smartass-tray.desktop    etc/xdg/autostart/
+debian/ai.talonic.smartass.desktop  usr/share/applications/
+smartass/plugins/weather        usr/share/smartass/plugins/

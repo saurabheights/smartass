@@ -1,0 +1,24 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        systemctl --global enable smartass-daemon.service 2>/dev/null || true
+        if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database -q /usr/share/applications || true
+        fi
+        if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -q /usr/share/icons/hicolor || true
+        fi
+        if ! dpkg -l gnome-shell-extension-appindicator 2>/dev/null | grep -q '^ii' \
+           && ! dpkg -l gnome-shell-extension-ubuntu-appindicators 2>/dev/null | grep -q '^ii'; then
+            echo "WARNING: the AppIndicator GNOME Shell extension is not installed."
+            echo "         The Smartass tray icon will not appear on vanilla GNOME Shell."
+            echo "         Install 'gnome-shell-extension-appindicator' and enable it."
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

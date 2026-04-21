@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        for uid in $(who | awk '{print $1}' | xargs -I{} id -u {} 2>/dev/null | sort -u); do
+            sudo -u "#$uid" XDG_RUNTIME_DIR="/run/user/$uid" \
+                systemctl --user stop smartass-daemon.service 2>/dev/null || true
+        done
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0
