@@ -1,0 +1,10 @@
+[plugin]
+id            = "weather"
+name          = "Weather"
+version       = "0.1.0"
+api_version   = 1
+description   = "Current conditions and 7-day forecast via Open-Meteo"
+author        = "Saurabh Khanduja"
+entry         = "plugin:WeatherPlugin"
+icon          = "weather-clear-symbolic"
+permissions   = ["net.http"]
