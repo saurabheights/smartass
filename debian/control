@@ -1,0 +1,31 @@
+Source: smartass
+Section: utils
+Priority: optional
+Maintainer: Saurabh Khanduja <saurabh@talonic.ai>
+Build-Depends: debhelper-compat (= 13),
+               dh-virtualenv,
+               python3-all (>= 3.10),
+               python3-venv,
+               python3-pip,
+               python3-dev,
+               libgl1,
+               libxcb-cursor0
+Standards-Version: 4.6.2
+Homepage: https://github.com/saurabheights/smartass
+
+Package: smartass
+Architecture: amd64
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+         python3 (>= 3.10),
+         libqt6core6,
+         libqt6dbus6,
+         libqt6widgets6,
+         libqt6gui6,
+         dbus-user-session,
+         adwaita-icon-theme,
+         gnome-shell-extension-appindicator | gnome-shell-extension-ubuntu-appindicators
+Description: Smart assistant tray app with a plugin system
+ Smartass is a desktop assistant that lives in the top bar via an
+ AppIndicator icon. A tabbed window hosts a Settings tab and one tab
+ per enabled plugin. Ships with a Weather plugin (Open-Meteo).
