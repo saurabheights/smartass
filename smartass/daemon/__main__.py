@@ -60,6 +60,7 @@ async def _run() -> int:
         log.error("could not acquire bus name %s (reply=%s)", dbus_names.SERVICE, reply)
         return 2
 
+    pm.attach_bus(bus)
     await pm.boot()
     log.info("daemon ready; booted plugins: %s", pm.running_ids())
 

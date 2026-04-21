@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from smartass.core import dbus_names
 from smartass.core import paths as _paths
 from smartass.core.config import ConfigStore, PluginConfig
 from smartass.core.manifest import Manifest, ManifestError, load_manifest
@@ -41,6 +42,12 @@ class PluginManager:
         self._http_factory = http_factory
         self._discovered: dict[str, DiscoveredPlugin] = {}
         self._running: dict[str, _RunningPlugin] = {}
+        self._bus: Any = None
+        self._bus_objects: dict[str, Any] = {}
+
+    def attach_bus(self, bus: Any) -> None:
+        """Attach a live D-Bus connection for per-plugin object exports."""
+        self._bus = bus
 
     # ---- discovery ----
 
@@ -137,6 +144,11 @@ class PluginManager:
             log.exception("plugin %s failed to start", plugin_id)
             raise
         self._running[plugin_id] = _RunningPlugin(dp=dp, instance=instance)
+        if self._bus is not None:
+            from smartass.daemon.plugin_object import PluginObject
+            obj = PluginObject(plugin_id, instance)
+            self._bus.export(dbus_names.plugin_path(plugin_id), obj)
+            self._bus_objects[plugin_id] = obj
         if self.config_store is not None:
             self.config_store.set_enabled(plugin_id, True)
             self.config_store.save()
@@ -153,6 +165,9 @@ class PluginManager:
             await rp.instance.on_stop()
         finally:
             rp.instance.on_unload()
+        if self._bus is not None and plugin_id in self._bus_objects:
+            obj = self._bus_objects.pop(plugin_id)
+            self._bus.unexport(dbus_names.plugin_path(plugin_id), obj)
         if self.config_store is not None:
             self.config_store.set_enabled(plugin_id, False)
             self.config_store.save()
