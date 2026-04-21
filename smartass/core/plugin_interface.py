@@ -6,7 +6,9 @@ Qt or D-Bus libraries directly; those are injected via PluginContext.
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, ClassVar, Optional
 
 
@@ -143,3 +145,85 @@ class SettingsSchema:
 
     def to_dict(self) -> dict[str, Any]:
         return {"fields": [f.to_dict() for f in self.fields]}
+
+
+# ---- Context ----
+
+
+@dataclass
+class PluginContext:
+    """Host-provided context injected into every plugin instance.
+
+    The tray-side and daemon-side instances of a plugin each get their own
+    PluginContext. Fields gated by permissions are set to None when the
+    corresponding permission is absent.
+    """
+
+    config: Any
+    data_dir: Path
+    log: Any  # logging.Logger, typed Any to avoid extra import at type-check
+    http: Any  # AsyncHttpClient | None
+    bus: Any  # SessionBus | None
+    signals: Any
+    permissions: frozenset[str]
+
+    def require(self, perm: str) -> None:
+        if perm not in self.permissions:
+            raise PermissionError(f"plugin lacks permission: {perm}")
+
+
+# ---- Abstract plugin ----
+
+
+class PluginInterface(ABC):
+    """Base class every plugin subclasses.
+
+    Instantiated in BOTH the daemon and the tray processes, with different
+    PluginContext values injected. Daemon-side lifecycle hooks (on_*) only
+    run in the daemon; build_tab() only runs in the tray.
+    """
+
+    id: str
+    api_version: ClassVar[int] = 1
+
+    def __init__(self, ctx: PluginContext) -> None:
+        self.ctx = ctx
+
+    # --- Lifecycle (daemon-side) ---
+    def on_load(self) -> None:
+        """Sync init before on_start; open DB, read config."""
+
+    async def on_start(self) -> None:
+        """Begin background work (polling, watchers)."""
+
+    async def on_stop(self) -> None:
+        """Stop tasks and flush pending work."""
+
+    def on_unload(self) -> None:
+        """Release resources after on_stop."""
+
+    # --- UI (tray-side) ---
+    @abstractmethod
+    def build_tab(self, parent: Any) -> Any:
+        """Return a QWidget for the main window's plugin tab."""
+
+    # --- Settings ---
+    @abstractmethod
+    def settings_schema(self) -> SettingsSchema:
+        """Return the declarative settings schema for this plugin."""
+
+    def on_settings_changed(self, new: dict[str, Any]) -> None:
+        """Called after the daemon persists new settings."""
+
+    # --- Import/export ---
+    def export_state(self) -> dict[str, Any]:
+        """Return portable state for ExportAll. Default: no state."""
+        return {}
+
+    def import_state(self, data: dict[str, Any]) -> None:
+        """Apply portable state from ImportAll. Default: ignore."""
+
+    # --- D-Bus ---
+    def dbus_interface(self) -> Optional[type]:
+        """Return an optional plugin-specific D-Bus interface class."""
+        return None
