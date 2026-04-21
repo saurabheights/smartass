@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+
+export PYBUILD_NAME=smartass
+export DH_VIRTUALENV_INSTALL_ROOT=/opt
+
+%:
+	dh $@ --with python-virtualenv
+
+override_dh_virtualenv:
+	dh_virtualenv \
+		--python /usr/bin/python3 \
+		--install-suffix smartass \
+		--builtin-venv \
+		--preinstall "wheel" \
+		--preinstall "setuptools>=68"
