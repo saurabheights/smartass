@@ -67,10 +67,8 @@ def load_manifest(plugin_dir: Path) -> Manifest:
             f"{path}: incompatible api_version {api_version} (expected {CURRENT_API_VERSION})"
         )
 
-    # id must match parent directory name when the directory looks like a named plugin dir.
-    # Directories whose names contain underscores are assumed to be system/temp paths
-    # (pytest tmp_path, XDG dirs, etc.) and are excluded from this check.
-    if "_" not in plugin_dir.name and plugin["id"] != plugin_dir.name:
+    # id must match parent directory name (loader enforces co-location)
+    if plugin["id"] != plugin_dir.name:
         raise ManifestError(
             f"{path}: id '{plugin['id']}' does not match directory '{plugin_dir.name}'"
         )

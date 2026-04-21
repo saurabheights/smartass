@@ -4,7 +4,9 @@ from smartass.core.manifest import Manifest, ManifestError, load_manifest
 
 
 def test_load_valid_manifest(tmp_path):
-    (tmp_path / "manifest.toml").write_text(
+    plugin_dir = tmp_path / "weather"
+    plugin_dir.mkdir()
+    (plugin_dir / "manifest.toml").write_text(
         """
 [plugin]
 id = "weather"
@@ -18,7 +20,7 @@ icon = "weather-clear-symbolic"
 permissions = ["net.http"]
 """
     )
-    m = load_manifest(tmp_path)
+    m = load_manifest(plugin_dir)
     assert isinstance(m, Manifest)
     assert m.id == "weather"
     assert m.name == "Weather"
@@ -27,7 +29,7 @@ permissions = ["net.http"]
     assert m.entry_module == "plugin"
     assert m.entry_class == "WeatherPlugin"
     assert m.permissions == frozenset({"net.http"})
-    assert m.root == tmp_path
+    assert m.root == plugin_dir
 
 
 def test_missing_file_raises(tmp_path):
@@ -36,13 +38,17 @@ def test_missing_file_raises(tmp_path):
 
 
 def test_missing_required_field(tmp_path):
-    (tmp_path / "manifest.toml").write_text("[plugin]\nid = \"x\"\n")
+    plugin_dir = tmp_path / "x"
+    plugin_dir.mkdir()
+    (plugin_dir / "manifest.toml").write_text("[plugin]\nid = \"x\"\n")
     with pytest.raises(ManifestError, match="missing required field"):
-        load_manifest(tmp_path)
+        load_manifest(plugin_dir)
 
 
 def test_unknown_permission_rejected(tmp_path):
-    (tmp_path / "manifest.toml").write_text(
+    plugin_dir = tmp_path / "x"
+    plugin_dir.mkdir()
+    (plugin_dir / "manifest.toml").write_text(
         """
 [plugin]
 id = "x"
@@ -57,7 +63,7 @@ permissions = ["net.evil"]
 """
     )
     with pytest.raises(ManifestError, match="unknown permission"):
-        load_manifest(tmp_path)
+        load_manifest(plugin_dir)
 
 
 def test_id_must_match_dir_name(tmp_path):
@@ -82,7 +88,9 @@ permissions = []
 
 
 def test_api_version_mismatch_rejected(tmp_path):
-    (tmp_path / "manifest.toml").write_text(
+    plugin_dir = tmp_path / "weather"
+    plugin_dir.mkdir()
+    (plugin_dir / "manifest.toml").write_text(
         """
 [plugin]
 id = "weather"
@@ -97,4 +105,4 @@ permissions = []
 """
     )
     with pytest.raises(ManifestError, match="incompatible api_version"):
-        load_manifest(tmp_path)
+        load_manifest(plugin_dir)
