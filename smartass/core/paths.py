@@ -13,7 +13,12 @@ def _xdg(home_env: str, default_rel: str) -> Path:
     value = os.environ.get(home_env)
     if value:
         return Path(value)
-    return Path(os.environ["HOME"]) / default_rel
+    home = os.environ.get("HOME")
+    if not home:
+        raise EnvironmentError(
+            f"neither ${home_env} nor $HOME is set; cannot resolve smartass path"
+        )
+    return Path(home) / default_rel
 
 
 def config_dir() -> Path:

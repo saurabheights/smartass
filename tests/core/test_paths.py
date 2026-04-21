@@ -64,3 +64,10 @@ def test_ensure_dirs_creates_directories(monkeypatch, tmp_path):
     assert (tmp_path / "data" / "smartass" / "plugin_data").is_dir()
     assert (tmp_path / "data" / "smartass" / "exports").is_dir()
     assert (tmp_path / "cache" / "smartass").is_dir()
+
+
+def test_raises_when_home_and_xdg_both_missing(monkeypatch):
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.delenv("HOME", raising=False)
+    with pytest.raises(EnvironmentError, match="XDG_CONFIG_HOME"):
+        paths.config_dir()
