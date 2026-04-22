@@ -76,7 +76,12 @@ class DaemonClient(QObject):
         return self._call("Ping")[0]
 
     def list_plugins(self) -> list[tuple[str, str, str, str, bool, bool]]:
-        return [tuple(r) for r in self._call("ListPlugins")[0]]
+        raw = self._call("ListPlugins")[0]
+        rows = json.loads(raw)
+        return [
+            (r["id"], r["name"], r["version"], r["description"], r["installed"], r["enabled"])
+            for r in rows
+        ]
 
     def enable_plugin(self, plugin_id: str) -> None:
         self._call("EnablePlugin", plugin_id)
@@ -85,10 +90,11 @@ class DaemonClient(QObject):
         self._call("DisablePlugin", plugin_id)
 
     def get_config(self, plugin_id: str) -> dict[str, Any]:
-        return dict(self._call("GetConfig", plugin_id)[0])
+        raw = self._call("GetConfig", plugin_id)[0]
+        return json.loads(raw)
 
     def set_config(self, plugin_id: str, values: dict[str, Any]) -> None:
-        self._call("SetConfig", plugin_id, values)
+        self._call("SetConfig", plugin_id, json.dumps(values))
 
     def get_settings_schema(self, plugin_id: str) -> dict[str, Any]:
         raw = self._call("GetSettingsSchema", plugin_id)[0]

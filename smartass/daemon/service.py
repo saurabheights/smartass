@@ -37,21 +37,24 @@ class CoreService(ServiceInterface):
         return f"pong {__version__}"
 
     @method()
-    def ListPlugins(self) -> "a(ssssbb)":  # type: ignore[name-defined]
-        rows: list[list[Any]] = []
+    def ListPlugins(self) -> "s":  # type: ignore[name-defined]
+        # JSON-encoded array of objects. Complex struct arrays don't
+        # unmarshall cleanly through PySide6 QtDBus, so use the same
+        # JSON-string strategy we already use for schemas.
+        rows: list[dict[str, Any]] = []
         for dp in self._pm.discover():
             m = dp.manifest
             rows.append(
-                [
-                    m.id,
-                    m.name,
-                    m.version,
-                    m.description,
-                    True,
-                    self._store.is_enabled(m.id),
-                ]
+                {
+                    "id": m.id,
+                    "name": m.name,
+                    "version": m.version,
+                    "description": m.description,
+                    "installed": True,
+                    "enabled": self._store.is_enabled(m.id),
+                }
             )
-        return rows
+        return json.dumps(rows)
 
     @method()
     async def EnablePlugin(self, plugin_id: "s") -> None:  # type: ignore[name-defined]
@@ -64,21 +67,25 @@ class CoreService(ServiceInterface):
         self.PluginDisabled(plugin_id)
 
     @method()
-    def GetConfig(self, plugin_id: "s") -> "a{sv}":  # type: ignore[name-defined]
-        return _to_variant_dict(self._store.get_plugin_values(plugin_id))
+    def GetConfig(self, plugin_id: "s") -> "s":  # type: ignore[name-defined]
+        # Same JSON-string strategy — avoids QtDBus a{sv} unmarshal quirks.
+        return json.dumps(self._store.get_plugin_values(plugin_id))
 
     @method()
     def SetConfig(
         self,
         plugin_id: "s",  # type: ignore[name-defined]
-        values: "a{sv}",  # type: ignore[name-defined]
+        values_json: "s",  # type: ignore[name-defined]
     ) -> None:
         schema = _resolve_schema(self._pm, plugin_id)
         try:
-            self._store.set_plugin_values(plugin_id, _from_variant_dict(values), schema)
+            values = json.loads(values_json)
+            self._store.set_plugin_values(plugin_id, values, schema)
         except InvalidConfig as e:
             raise ValueError(str(e)) from e
         self._store.save()
+        # Signal still uses variant dict — fine; signals don't round-trip
+        # through PySide6 client-side unmarshalling (we disabled that bridge).
         self.SettingsChanged(plugin_id, _to_variant_dict(self._store.get_plugin_values(plugin_id)))
 
     @method()

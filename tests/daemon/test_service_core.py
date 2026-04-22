@@ -91,12 +91,13 @@ async def test_list_plugins_reports_enabled_state(tmp_path, monkeypatch):
     introspection = await client_bus.introspect(dbus_names.SERVICE, dbus_names.CORE_PATH)
     proxy = client_bus.get_proxy_object(dbus_names.SERVICE, dbus_names.CORE_PATH, introspection)
     iface = proxy.get_interface(dbus_names.CORE_IFACE)
-    rows = await iface.call_list_plugins()
-    ids = {r[0] for r in rows}
+    import json as _json
+    rows = _json.loads(await iface.call_list_plugins())
+    ids = {r["id"] for r in rows}
     assert "hello" in ids
-    row = next(r for r in rows if r[0] == "hello")
-    assert row[4] is True  # installed
-    assert row[5] is False  # enabled
+    row = next(r for r in rows if r["id"] == "hello")
+    assert row["installed"] is True
+    assert row["enabled"] is False
 
     bus.disconnect()
     client_bus.disconnect()
@@ -123,9 +124,10 @@ async def test_enable_plugin_persists_and_reports(tmp_path, monkeypatch):
     iface = proxy.get_interface(dbus_names.CORE_IFACE)
 
     await iface.call_enable_plugin("hello")
-    rows = await iface.call_list_plugins()
-    row = next(r for r in rows if r[0] == "hello")
-    assert row[5] is True
+    import json as _json
+    rows = _json.loads(await iface.call_list_plugins())
+    row = next(r for r in rows if r["id"] == "hello")
+    assert row["enabled"] is True
 
     bus.disconnect()
     client_bus.disconnect()

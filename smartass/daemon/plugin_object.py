@@ -16,13 +16,10 @@ class PluginObject(ServiceInterface):
         self._instance = instance
 
     @method()
-    def GetState(self) -> "a{sv}":  # type: ignore[name-defined]
-        from dbus_next import Variant
-
-        state: dict[str, Any] = {}
-        # Convention: plugins may expose last_snapshot() and is_stale().
-        # For the MVP Weather plugin, that's exactly what we need.
+    def GetState(self) -> "s":  # type: ignore[name-defined]
+        # JSON-encoded {"snapshot": ..., "stale": bool}. a{sv} doesn't
+        # unmarshall cleanly on PySide6's QtDBus client; keep the wire
+        # format as a single string for both client implementations.
         snap = getattr(self._instance, "last_snapshot", lambda: None)()
-        state["snapshot_json"] = Variant("s", json.dumps(snap) if snap is not None else "null")
-        state["stale"] = Variant("b", bool(getattr(self._instance, "is_stale", lambda: False)()))
-        return state
+        stale = bool(getattr(self._instance, "is_stale", lambda: False)())
+        return json.dumps({"snapshot": snap, "stale": stale})

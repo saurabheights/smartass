@@ -120,14 +120,16 @@ class WeatherTab(QWidget):
         args = reply.arguments()
         if not args:
             return None
-        state = args[0]
-        snap = state.get("snapshot_json") if isinstance(state, dict) else None
+        try:
+            wire = json.loads(args[0])
+        except (json.JSONDecodeError, TypeError):
+            return None
+        snap = wire.get("snapshot")
         if snap is None:
             return None
-        try:
-            return json.loads(snap)
-        except json.JSONDecodeError:
-            return None
+        # Annotate stale flag onto the snapshot so _render can pick it up
+        snap["stale"] = bool(wire.get("stale", False))
+        return snap
 
     def _render(self, payload: dict[str, Any]) -> None:
         city = payload.get("city", "—")

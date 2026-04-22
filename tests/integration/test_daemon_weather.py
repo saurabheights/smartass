@@ -91,16 +91,17 @@ async def test_enable_weather_over_dbus(tmp_path, monkeypatch):
         )
         core = proxy.get_interface(dbus_names.CORE_IFACE)
 
-        rows = await core.call_list_plugins()
-        assert any(r[0] == "weather" for r in rows)
+        import json as _json
+        rows = _json.loads(await core.call_list_plugins())
+        assert any(r["id"] == "weather" for r in rows)
 
         await core.call_enable_plugin("weather")
         # Give the polling loop one tick
         await asyncio.sleep(0.2)
 
-        rows = await core.call_list_plugins()
-        row = next(r for r in rows if r[0] == "weather")
-        assert row[5] is True
+        rows = _json.loads(await core.call_list_plugins())
+        row = next(r for r in rows if r["id"] == "weather")
+        assert row["enabled"] is True
 
         await core.call_disable_plugin("weather")
         client_bus.disconnect()

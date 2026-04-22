@@ -80,8 +80,10 @@ async def test_plugin_object_exported_on_enable(tmp_path, monkeypatch):
     intro2 = await client_bus.introspect(dbus_names.SERVICE, plugin_path)
     proxy2 = client_bus.get_proxy_object(dbus_names.SERVICE, plugin_path, intro2)
     plugin_iface = proxy2.get_interface(dbus_names.PLUGIN_IFACE)
-    state = await plugin_iface.call_get_state()
-    assert "snapshot_json" in state
+    import json as _json
+    state = _json.loads(await plugin_iface.call_get_state())
+    assert "snapshot" in state
+    assert "stale" in state
 
     await core.call_disable_plugin("hello")
     # After disable, the object should be gone; introspection may still succeed
