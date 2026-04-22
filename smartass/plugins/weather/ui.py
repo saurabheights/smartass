@@ -11,7 +11,7 @@ from typing import Any
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtDBus import QDBusConnection, QDBusInterface, QDBusMessage
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QPalette
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -85,14 +85,16 @@ class WeatherTab(QWidget):
         header.addWidget(self._city_label)
 
         self._updated_label = QLabel("")
-        self._updated_label.setStyleSheet("color: #888;")
+        self._updated_label.setForegroundRole(QPalette.ColorRole.PlaceholderText)
         uf = QFont()
         uf.setPointSize(10)
         self._updated_label.setFont(uf)
         header.addWidget(self._updated_label)
 
         self._stale_label = QLabel("")
-        self._stale_label.setStyleSheet("color: #c66;")
+        # setForegroundRole can't give us "warning red" from the palette
+        # reliably across themes; keep a moderate red that works on both.
+        self._stale_label.setStyleSheet("color: #d45a5a;")
         header.addWidget(self._stale_label)
         header.addStretch()
 
@@ -102,11 +104,13 @@ class WeatherTab(QWidget):
         root.addLayout(header)
 
         # --- Hero card: today ---
+        # Use Qt's default StyledPanel rendering — it follows the active
+        # palette (dark on dark themes, light on light themes). Custom
+        # stylesheets that hardcode palette(base) resolve at parse time
+        # and won't track theme changes.
         hero = QFrame()
         hero.setFrameShape(QFrame.Shape.StyledPanel)
-        hero.setStyleSheet(
-            "QFrame { background: palette(base); border-radius: 12px; padding: 16px; }"
-        )
+        hero.setFrameShadow(QFrame.Shadow.Raised)
         hero_layout = QHBoxLayout(hero)
         hero_layout.setContentsMargins(20, 16, 20, 16)
         hero_layout.setSpacing(24)
@@ -132,14 +136,15 @@ class WeatherTab(QWidget):
         cf = QFont()
         cf.setPointSize(16)
         self._condition_label.setFont(cf)
-        self._condition_label.setStyleSheet("color: palette(mid);")
+        # No explicit color — inherits palette text so it follows the theme
         temp_col.addWidget(self._condition_label)
 
         self._feels_label = QLabel("")
         ff = QFont()
         ff.setPointSize(11)
         self._feels_label.setFont(ff)
-        self._feels_label.setStyleSheet("color: #888;")
+        # Lower-emphasis via Qt's placeholder text role (theme-aware)
+        self._feels_label.setForegroundRole(QPalette.ColorRole.PlaceholderText)
         temp_col.addWidget(self._feels_label)
         temp_col.addStretch()
 
@@ -163,9 +168,7 @@ class WeatherTab(QWidget):
 
         self._forecast_container = QFrame()
         self._forecast_container.setFrameShape(QFrame.Shape.StyledPanel)
-        self._forecast_container.setStyleSheet(
-            "QFrame { background: palette(base); border-radius: 12px; padding: 8px; }"
-        )
+        self._forecast_container.setFrameShadow(QFrame.Shadow.Raised)
         self._forecast_grid = QGridLayout(self._forecast_container)
         self._forecast_grid.setContentsMargins(12, 12, 12, 12)
         self._forecast_grid.setHorizontalSpacing(16)
@@ -275,7 +278,7 @@ class WeatherTab(QWidget):
             )
         for row, (label, value) in enumerate(details):
             lbl_k = QLabel(label)
-            lbl_k.setStyleSheet("color: #888;")
+            lbl_k.setForegroundRole(QPalette.ColorRole.PlaceholderText)
             lbl_v = QLabel(value)
             lvf = QFont()
             lvf.setBold(True)
@@ -293,7 +296,7 @@ class WeatherTab(QWidget):
             hf2 = QFont()
             hf2.setBold(True)
             hdr.setFont(hf2)
-            hdr.setStyleSheet("color: palette(mid);")
+            hdr.setForegroundRole(QPalette.ColorRole.PlaceholderText)
             self._forecast_grid.addWidget(hdr, 0, col)
         for row, d in enumerate(daily, start=1):
             day_label = QLabel(_weekday(d.get("date", "")))
@@ -314,7 +317,7 @@ class WeatherTab(QWidget):
             self._forecast_grid.addWidget(rain, row, 3, alignment=Qt.AlignmentFlag.AlignRight)
 
             cond = QLabel(WMO_CODE_TO_LABEL.get(int(d.get("weather_code", -1)), "—"))
-            cond.setStyleSheet("color: palette(mid);")
+            cond.setForegroundRole(QPalette.ColorRole.PlaceholderText)
             self._forecast_grid.addWidget(cond, row, 4)
 
         if payload.get("stale"):
