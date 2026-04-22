@@ -155,6 +155,8 @@ plugin directories. For each plugin:
 
 ### Weather plugin
 
+![Weather tab with hero card, details grid, and 7-day forecast](docs/images/weather-tab.png)
+
 Enabled by default after install? No — you opt in via Settings.
 
 Once enabled:
