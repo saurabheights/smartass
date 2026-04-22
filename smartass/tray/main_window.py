@@ -36,6 +36,9 @@ class MainWindow(QMainWindow):
         self._plugin_tabs: dict[str, QWidget] = {}
         self._rebuild_plugin_tabs()
 
+        # DaemonClient Qt signals are currently no-ops (D-Bus bridge disabled).
+        # Rely on the SettingsTab's own signal emitted after a successful toggle.
+        self._settings_tab.plugin_enabled_changed.connect(self._on_plugin_toggled)
         client.plugin_enabled.connect(self._on_plugin_enabled)
         client.plugin_disabled.connect(self._on_plugin_disabled)
 
@@ -67,6 +70,12 @@ class MainWindow(QMainWindow):
         if idx >= 0:
             self._tabs.removeTab(idx)
         widget.deleteLater()
+
+    def _on_plugin_toggled(self, plugin_id: str, enabled: bool) -> None:
+        if enabled:
+            self._add_plugin_tab(plugin_id)
+        else:
+            self._remove_plugin_tab(plugin_id)
 
     def _on_plugin_enabled(self, plugin_id: str) -> None:
         self._add_plugin_tab(plugin_id)

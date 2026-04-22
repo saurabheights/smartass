@@ -48,6 +48,20 @@ WMO_CODE_TO_LABEL = {
     99: "Severe thunderstorm",
 }
 
+WMO_CODE_TO_EMOJI = {
+    0: "☀️",
+    1: "🌤️",
+    2: "⛅",
+    3: "☁️",
+    45: "🌫️",
+    48: "🌫️",
+    51: "🌦️", 53: "🌦️", 55: "🌧️",
+    61: "🌧️", 63: "🌧️", 65: "🌧️",
+    71: "🌨️", 73: "🌨️", 75: "❄️",
+    80: "🌦️", 81: "🌧️", 82: "⛈️",
+    95: "⛈️", 96: "⛈️", 99: "⛈️",
+}
+
 
 class WeatherTab(QWidget):
     """Polls the daemon every 30s for a cached snapshot; no direct API calls."""
@@ -58,14 +72,24 @@ class WeatherTab(QWidget):
         self._bus = QDBusConnection.sessionBus()
 
         root = QVBoxLayout(self)
+        root.setContentsMargins(20, 20, 20, 20)
+        root.setSpacing(16)
 
+        # --- Top header ---
         header = QHBoxLayout()
         self._city_label = QLabel("—")
-        f = QFont()
-        f.setPointSize(18)
-        f.setBold(True)
-        self._city_label.setFont(f)
+        hf = QFont()
+        hf.setPointSize(22)
+        hf.setBold(True)
+        self._city_label.setFont(hf)
         header.addWidget(self._city_label)
+
+        self._updated_label = QLabel("")
+        self._updated_label.setStyleSheet("color: #888;")
+        uf = QFont()
+        uf.setPointSize(10)
+        self._updated_label.setFont(uf)
+        header.addWidget(self._updated_label)
 
         self._stale_label = QLabel("")
         self._stale_label.setStyleSheet("color: #c66;")
@@ -73,22 +97,81 @@ class WeatherTab(QWidget):
         header.addStretch()
 
         refresh_btn = QPushButton("Refresh")
-        refresh_btn.clicked.connect(self._refresh)
+        refresh_btn.clicked.connect(self._refresh_from_daemon)
         header.addWidget(refresh_btn)
         root.addLayout(header)
 
-        self._current = QLabel("No data yet.")
-        f2 = QFont()
-        f2.setPointSize(14)
-        self._current.setFont(f2)
-        root.addWidget(self._current)
+        # --- Hero card: today ---
+        hero = QFrame()
+        hero.setFrameShape(QFrame.Shape.StyledPanel)
+        hero.setStyleSheet(
+            "QFrame { background: palette(base); border-radius: 12px; padding: 16px; }"
+        )
+        hero_layout = QHBoxLayout(hero)
+        hero_layout.setContentsMargins(20, 16, 20, 16)
+        hero_layout.setSpacing(24)
 
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        root.addWidget(line)
+        # Left: emoji + temp + condition
+        self._emoji_label = QLabel("—")
+        ef = QFont()
+        ef.setPointSize(56)
+        self._emoji_label.setFont(ef)
+        self._emoji_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hero_layout.addWidget(self._emoji_label)
 
-        self._forecast_grid = QGridLayout()
-        root.addLayout(self._forecast_grid)
+        temp_col = QVBoxLayout()
+        temp_col.setSpacing(2)
+        self._temp_label = QLabel("—")
+        tf = QFont()
+        tf.setPointSize(48)
+        tf.setBold(True)
+        self._temp_label.setFont(tf)
+        temp_col.addWidget(self._temp_label)
+
+        self._condition_label = QLabel("—")
+        cf = QFont()
+        cf.setPointSize(16)
+        self._condition_label.setFont(cf)
+        self._condition_label.setStyleSheet("color: palette(mid);")
+        temp_col.addWidget(self._condition_label)
+
+        self._feels_label = QLabel("")
+        ff = QFont()
+        ff.setPointSize(11)
+        self._feels_label.setFont(ff)
+        self._feels_label.setStyleSheet("color: #888;")
+        temp_col.addWidget(self._feels_label)
+        temp_col.addStretch()
+
+        hero_layout.addLayout(temp_col, stretch=1)
+
+        # Right: details grid
+        self._details_grid = QGridLayout()
+        self._details_grid.setHorizontalSpacing(24)
+        self._details_grid.setVerticalSpacing(8)
+        hero_layout.addLayout(self._details_grid, stretch=2)
+
+        root.addWidget(hero)
+
+        # --- 7-day forecast ---
+        forecast_label = QLabel("7-day forecast")
+        flf = QFont()
+        flf.setPointSize(12)
+        flf.setBold(True)
+        forecast_label.setFont(flf)
+        root.addWidget(forecast_label)
+
+        self._forecast_container = QFrame()
+        self._forecast_container.setFrameShape(QFrame.Shape.StyledPanel)
+        self._forecast_container.setStyleSheet(
+            "QFrame { background: palette(base); border-radius: 12px; padding: 8px; }"
+        )
+        self._forecast_grid = QGridLayout(self._forecast_container)
+        self._forecast_grid.setContentsMargins(12, 12, 12, 12)
+        self._forecast_grid.setHorizontalSpacing(16)
+        self._forecast_grid.setVerticalSpacing(6)
+        root.addWidget(self._forecast_container)
+
         root.addStretch()
 
         self._timer = QTimer(self)
@@ -96,14 +179,148 @@ class WeatherTab(QWidget):
         self._timer.start(30_000)
         self._refresh()
 
+    # --- actions ---
+
+    def _refresh_from_daemon(self) -> None:
+        iface = QDBusInterface(
+            dbus_names.SERVICE,
+            dbus_names.plugin_path("weather"),
+            dbus_names.PLUGIN_IFACE,
+            self._bus,
+        )
+        if iface.isValid():
+            iface.call("RefreshNow")
+        # Give the daemon a moment to complete the fetch, then pull state.
+        QTimer.singleShot(1500, self._refresh)
+
     def _refresh(self) -> None:
         payload = self._get_state_from_daemon()
         if payload is None:
             self._city_label.setText("—")
-            self._current.setText("Weather plugin not available.")
+            self._condition_label.setText("Weather plugin not available.")
+            self._temp_label.setText("—")
+            self._emoji_label.setText("❓")
+            self._feels_label.setText("")
+            self._updated_label.setText("")
             self._stale_label.setText("")
+            self._clear_details_grid()
+            self._clear_forecast_grid()
             return
         self._render(payload)
+
+    # --- rendering ---
+
+    def _clear_details_grid(self) -> None:
+        while self._details_grid.count():
+            item = self._details_grid.takeAt(0)
+            if item.widget() is not None:
+                item.widget().deleteLater()
+
+    def _clear_forecast_grid(self) -> None:
+        while self._forecast_grid.count():
+            item = self._forecast_grid.takeAt(0)
+            if item.widget() is not None:
+                item.widget().deleteLater()
+
+    def _render(self, payload: dict[str, Any]) -> None:
+        city = payload.get("city", "—")
+        country = payload.get("country", "")
+        self._city_label.setText(f"{city}, {country}" if country else city)
+
+        units = payload.get("units", "metric")
+        deg = "°C" if units == "metric" else "°F"
+        wind_unit = "km/h" if units == "metric" else "mph"
+        precip_unit = "mm" if units == "metric" else "in"
+
+        cur = payload.get("current") or {}
+        code = int(cur.get("weather_code", -1))
+        condition = WMO_CODE_TO_LABEL.get(code, "—")
+        emoji = WMO_CODE_TO_EMOJI.get(code, "❓")
+
+        # --- hero card ---
+        self._emoji_label.setText(emoji)
+        temp = cur.get("temperature", "—")
+        self._temp_label.setText(f"{temp}{deg}" if temp != "—" else "—")
+        self._condition_label.setText(condition)
+        feels = cur.get("apparent_temperature")
+        if feels is not None:
+            self._feels_label.setText(f"Feels like {feels}{deg}")
+        else:
+            self._feels_label.setText("")
+
+        now_str = cur.get("time", "")
+        self._updated_label.setText(f"Updated {now_str}" if now_str else "")
+
+        # --- details grid ---
+        self._clear_details_grid()
+        details = [
+            ("Humidity", f"{cur.get('humidity', '—')}%"),
+            ("Wind", f"{cur.get('wind_speed', '—')} {wind_unit}"),
+            ("Precipitation", f"{cur.get('precipitation', 0)} {precip_unit}"),
+            ("Cloud cover", f"{cur.get('cloud_cover', '—')}%"),
+        ]
+        daily = payload.get("daily", []) or []
+        if daily:
+            today = daily[0]
+            details.extend(
+                [
+                    ("Sunrise", _time_only(today.get("sunrise", ""))),
+                    ("Sunset", _time_only(today.get("sunset", ""))),
+                    ("UV index (max)", f"{today.get('uv_index_max', '—')}"),
+                    (
+                        "Rain chance",
+                        f"{today.get('precipitation_probability_max', 0)}%",
+                    ),
+                ]
+            )
+        for row, (label, value) in enumerate(details):
+            lbl_k = QLabel(label)
+            lbl_k.setStyleSheet("color: #888;")
+            lbl_v = QLabel(value)
+            lvf = QFont()
+            lvf.setBold(True)
+            lbl_v.setFont(lvf)
+            col = row % 2
+            rr = row // 2
+            self._details_grid.addWidget(lbl_k, rr, col * 2)
+            self._details_grid.addWidget(lbl_v, rr, col * 2 + 1)
+
+        # --- 7-day forecast ---
+        self._clear_forecast_grid()
+        headers = ["Day", "", f"High / Low {deg}", f"Rain %", "Conditions"]
+        for col, h in enumerate(headers):
+            hdr = QLabel(h)
+            hf2 = QFont()
+            hf2.setBold(True)
+            hdr.setFont(hf2)
+            hdr.setStyleSheet("color: palette(mid);")
+            self._forecast_grid.addWidget(hdr, 0, col)
+        for row, d in enumerate(daily, start=1):
+            day_label = QLabel(_weekday(d.get("date", "")))
+            self._forecast_grid.addWidget(day_label, row, 0)
+
+            emoji_lbl = QLabel(WMO_CODE_TO_EMOJI.get(int(d.get("weather_code", -1)), "❓"))
+            emf = QFont()
+            emf.setPointSize(16)
+            emoji_lbl.setFont(emf)
+            self._forecast_grid.addWidget(emoji_lbl, row, 1)
+
+            hl = QLabel(f"{d.get('temp_max', '—')} / {d.get('temp_min', '—')}")
+            self._forecast_grid.addWidget(
+                hl, row, 2, alignment=Qt.AlignmentFlag.AlignRight
+            )
+
+            rain = QLabel(f"{d.get('precipitation_probability_max', 0)}%")
+            self._forecast_grid.addWidget(rain, row, 3, alignment=Qt.AlignmentFlag.AlignRight)
+
+            cond = QLabel(WMO_CODE_TO_LABEL.get(int(d.get("weather_code", -1)), "—"))
+            cond.setStyleSheet("color: palette(mid);")
+            self._forecast_grid.addWidget(cond, row, 4)
+
+        if payload.get("stale"):
+            self._stale_label.setText("(stale — daemon could not refresh)")
+        else:
+            self._stale_label.setText("")
 
     def _get_state_from_daemon(self) -> dict[str, Any] | None:
         iface = QDBusInterface(
@@ -131,48 +348,23 @@ class WeatherTab(QWidget):
         snap["stale"] = bool(wire.get("stale", False))
         return snap
 
-    def _render(self, payload: dict[str, Any]) -> None:
-        city = payload.get("city", "—")
-        country = payload.get("country", "")
-        self._city_label.setText(f"{city}, {country}" if country else city)
 
-        units = payload.get("units", "metric")
-        deg = "°C" if units == "metric" else "°F"
-        wind = "km/h" if units == "metric" else "mph"
+def _weekday(date_str: str) -> str:
+    """Return 'Mon', 'Tue', ... from a YYYY-MM-DD string; fall back to raw."""
+    try:
+        from datetime import date as _date
+        d = _date.fromisoformat(date_str)
+        return d.strftime("%a %b %-d")
+    except (ValueError, TypeError):
+        return date_str
 
-        cur = payload.get("current") or {}
-        label = WMO_CODE_TO_LABEL.get(int(cur.get("weather_code", -1)), "—")
-        self._current.setText(
-            f"{cur.get('temperature', '—')}{deg} — {label}  "
-            f"(humidity {cur.get('humidity', '—')}%, wind {cur.get('wind_speed', '—')} {wind})"
-        )
 
-        while self._forecast_grid.count():
-            item = self._forecast_grid.takeAt(0)
-            if item.widget() is not None:
-                item.widget().deleteLater()
-
-        daily = payload.get("daily", []) or []
-        headers = ["Date", f"High {deg}", f"Low {deg}", "Conditions"]
-        for col, h in enumerate(headers):
-            hdr = QLabel(h)
-            hf = QFont()
-            hf.setBold(True)
-            hdr.setFont(hf)
-            self._forecast_grid.addWidget(hdr, 0, col)
-        for row, d in enumerate(daily, start=1):
-            self._forecast_grid.addWidget(QLabel(str(d.get("date", "—"))), row, 0)
-            self._forecast_grid.addWidget(
-                QLabel(str(d.get("temp_max", "—"))), row, 1, alignment=Qt.AlignmentFlag.AlignRight
-            )
-            self._forecast_grid.addWidget(
-                QLabel(str(d.get("temp_min", "—"))), row, 2, alignment=Qt.AlignmentFlag.AlignRight
-            )
-            self._forecast_grid.addWidget(
-                QLabel(WMO_CODE_TO_LABEL.get(int(d.get("weather_code", -1)), "—")), row, 3
-            )
-
-        if payload.get("stale"):
-            self._stale_label.setText("(stale — daemon could not refresh)")
-        else:
-            self._stale_label.setText("")
+def _time_only(iso_ts: str) -> str:
+    """Return 'HH:MM' from an ISO datetime; fall back to raw."""
+    if not iso_ts:
+        return "—"
+    # Open-Meteo uses local time without 'Z'/offset in practice.
+    _, _, hm = iso_ts.partition("T")
+    if hm:
+        return hm[:5]
+    return iso_ts

@@ -117,9 +117,14 @@ class WeatherPlugin(PluginInterface):
             "current": {
                 "time": snap.current.time,
                 "temperature": snap.current.temperature,
+                "apparent_temperature": snap.current.apparent_temperature,
                 "weather_code": snap.current.weather_code,
                 "humidity": snap.current.humidity,
                 "wind_speed": snap.current.wind_speed,
+                "wind_direction": snap.current.wind_direction,
+                "precipitation": snap.current.precipitation,
+                "cloud_cover": snap.current.cloud_cover,
+                "is_day": snap.current.is_day,
             },
             "daily": [
                 {
@@ -127,6 +132,12 @@ class WeatherPlugin(PluginInterface):
                     "temp_max": d.temp_max,
                     "temp_min": d.temp_min,
                     "weather_code": d.weather_code,
+                    "sunrise": d.sunrise,
+                    "sunset": d.sunset,
+                    "precipitation_sum": d.precipitation_sum,
+                    "precipitation_probability_max": d.precipitation_probability_max,
+                    "uv_index_max": d.uv_index_max,
+                    "wind_speed_max": d.wind_speed_max,
                 }
                 for d in snap.daily
             ],

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import zip_longest
 from typing import Any
 
 import httpx
@@ -32,9 +33,14 @@ class GeoResult:
 class Current:
     time: str
     temperature: float
+    apparent_temperature: float
     weather_code: int
     humidity: int
     wind_speed: float
+    wind_direction: int
+    precipitation: float
+    cloud_cover: int
+    is_day: int
 
 
 @dataclass(frozen=True)
@@ -43,6 +49,12 @@ class DailyEntry:
     temp_max: float
     temp_min: float
     weather_code: int
+    sunrise: str
+    sunset: str
+    precipitation_sum: float
+    precipitation_probability_max: int
+    uv_index_max: float
+    wind_speed_max: float
 
 
 @dataclass(frozen=True)
@@ -83,8 +95,16 @@ class OpenMeteoClient:
         params = {
             "latitude": latitude,
             "longitude": longitude,
-            "current": "temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m",
-            "daily": "temperature_2m_max,temperature_2m_min,weather_code",
+            "current": (
+                "temperature_2m,apparent_temperature,weather_code,"
+                "relative_humidity_2m,wind_speed_10m,wind_direction_10m,"
+                "precipitation,cloud_cover,is_day"
+            ),
+            "daily": (
+                "temperature_2m_max,temperature_2m_min,weather_code,"
+                "sunrise,sunset,precipitation_sum,precipitation_probability_max,"
+                "uv_index_max,wind_speed_10m_max"
+            ),
             "temperature_unit": temp_unit,
             "wind_speed_unit": wind_unit,
             "timezone": "auto",
@@ -97,28 +117,46 @@ class OpenMeteoClient:
         daily = data.get("daily") or {}
         try:
             current = Current(
-                time=str(cur["time"]),
-                temperature=float(cur["temperature_2m"]),
-                weather_code=int(cur["weather_code"]),
+                time=str(cur.get("time", "")),
+                temperature=float(cur.get("temperature_2m", 0.0)),
+                apparent_temperature=float(cur.get("apparent_temperature", cur.get("temperature_2m", 0.0))),
+                weather_code=int(cur.get("weather_code", 0)),
                 humidity=int(cur.get("relative_humidity_2m", 0)),
                 wind_speed=float(cur.get("wind_speed_10m", 0.0)),
+                wind_direction=int(cur.get("wind_direction_10m", 0)),
+                precipitation=float(cur.get("precipitation", 0.0)),
+                cloud_cover=int(cur.get("cloud_cover", 0)),
+                is_day=int(cur.get("is_day", 1)),
             )
             days = list(
-                zip(
+                zip_longest(
                     daily.get("time", []),
                     daily.get("temperature_2m_max", []),
                     daily.get("temperature_2m_min", []),
                     daily.get("weather_code", []),
+                    daily.get("sunrise", []),
+                    daily.get("sunset", []),
+                    daily.get("precipitation_sum", []),
+                    daily.get("precipitation_probability_max", []),
+                    daily.get("uv_index_max", []),
+                    daily.get("wind_speed_10m_max", []),
+                    fillvalue=None,
                 )
             )
             daily_entries = [
                 DailyEntry(
-                    date=str(d),
-                    temp_max=float(mx),
-                    temp_min=float(mn),
-                    weather_code=int(wc),
+                    date=str(d) if d is not None else "",
+                    temp_max=float(mx) if mx is not None else 0.0,
+                    temp_min=float(mn) if mn is not None else 0.0,
+                    weather_code=int(wc) if wc is not None else 0,
+                    sunrise=str(sr) if sr is not None else "",
+                    sunset=str(ss) if ss is not None else "",
+                    precipitation_sum=float(psum) if psum is not None else 0.0,
+                    precipitation_probability_max=int(pprob) if pprob is not None else 0,
+                    uv_index_max=float(uv) if uv is not None else 0.0,
+                    wind_speed_max=float(wmax) if wmax is not None else 0.0,
                 )
-                for (d, mx, mn, wc) in days
+                for (d, mx, mn, wc, sr, ss, psum, pprob, uv, wmax) in days
             ]
         except (KeyError, TypeError, ValueError) as e:
             raise WeatherError(f"malformed forecast payload: {e}") from e

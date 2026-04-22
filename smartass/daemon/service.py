@@ -72,7 +72,7 @@ class CoreService(ServiceInterface):
         return json.dumps(self._store.get_plugin_values(plugin_id))
 
     @method()
-    def SetConfig(
+    async def SetConfig(
         self,
         plugin_id: "s",  # type: ignore[name-defined]
         values_json: "s",  # type: ignore[name-defined]
@@ -84,9 +84,26 @@ class CoreService(ServiceInterface):
         except InvalidConfig as e:
             raise ValueError(str(e)) from e
         self._store.save()
+        new_values = self._store.get_plugin_values(plugin_id)
+
+        # Notify the running plugin so it can react immediately.
+        if self._pm.is_running(plugin_id):
+            running = self._pm._running[plugin_id].instance  # noqa: SLF001
+            try:
+                running.on_settings_changed(new_values)
+            except Exception:
+                log.exception("plugin %s on_settings_changed raised", plugin_id)
+            # If the plugin exposes a refresh() coroutine, trigger one immediately.
+            refresh_fn = getattr(running, "refresh", None)
+            if callable(refresh_fn):
+                import asyncio as _asyncio
+                import inspect as _inspect
+                if _inspect.iscoroutinefunction(refresh_fn):
+                    _asyncio.create_task(refresh_fn())
+
         # Signal still uses variant dict — fine; signals don't round-trip
         # through PySide6 client-side unmarshalling (we disabled that bridge).
-        self.SettingsChanged(plugin_id, _to_variant_dict(self._store.get_plugin_values(plugin_id)))
+        self.SettingsChanged(plugin_id, _to_variant_dict(new_values))
 
     @method()
     def GetSettingsSchema(self, plugin_id: "s") -> "s":  # type: ignore[name-defined]

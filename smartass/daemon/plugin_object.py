@@ -23,3 +23,14 @@ class PluginObject(ServiceInterface):
         snap = getattr(self._instance, "last_snapshot", lambda: None)()
         stale = bool(getattr(self._instance, "is_stale", lambda: False)())
         return json.dumps({"snapshot": snap, "stale": stale})
+
+    @method()
+    async def RefreshNow(self) -> None:
+        fn = getattr(self._instance, "refresh", None)
+        if fn is None:
+            return
+        import inspect as _inspect
+        if _inspect.iscoroutinefunction(fn):
+            await fn()
+        else:
+            fn()
