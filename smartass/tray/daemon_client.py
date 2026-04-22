@@ -51,40 +51,14 @@ class DaemonClient(QObject):
             self.daemon_online.emit()
 
     def _connect_signals(self) -> None:
-        def _forward(local_signal):
-            def _handler(message: QDBusMessage):
-                args = list(message.arguments())
-                local_signal.emit(*args)
-            return _handler
-
-        self._bus.connect(
-            dbus_names.SERVICE,
-            dbus_names.CORE_PATH,
-            dbus_names.CORE_IFACE,
-            "PluginEnabled",
-            _forward(self.plugin_enabled),
-        )
-        self._bus.connect(
-            dbus_names.SERVICE,
-            dbus_names.CORE_PATH,
-            dbus_names.CORE_IFACE,
-            "PluginDisabled",
-            _forward(self.plugin_disabled),
-        )
-        self._bus.connect(
-            dbus_names.SERVICE,
-            dbus_names.CORE_PATH,
-            dbus_names.CORE_IFACE,
-            "SettingsChanged",
-            _forward(self.settings_changed),
-        )
-        self._bus.connect(
-            dbus_names.SERVICE,
-            dbus_names.CORE_PATH,
-            dbus_names.CORE_IFACE,
-            "PluginStateUpdated",
-            _forward(self.plugin_state_updated),
-        )
+        # PySide6 QDBusConnection.connect requires 6 args (service, path,
+        # interface, name, receiver, slot) with a Qt-style SLOT. Bridging
+        # generic Python callables is non-trivial, and MVP tabs already
+        # refresh explicitly on user action + periodic polling. Skip the
+        # bridge for now; daemon-side events won't auto-propagate to the
+        # tray, but user-driven changes (Enable/Disable button, Save on
+        # form) always trigger an explicit refresh downstream.
+        pass
 
     # --- sync RPC wrappers ---
 
