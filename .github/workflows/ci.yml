@@ -91,4 +91,6 @@ jobs:
         uses: py-cov-action/python-coverage-comment-action@v3
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERAGE_DATA_FILE: .cache/.coverage
+          # py-cov-action expects COVERAGE_PATH (not COVERAGE_DATA_FILE).
+          # It looks for .coverage *inside* this path; point at the dir.
+          COVERAGE_PATH: .cache
