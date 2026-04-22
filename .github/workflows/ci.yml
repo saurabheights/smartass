@@ -7,13 +7,18 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Opt in to Node.js 24 for javascript actions ahead of GitHub's June 2026
+# deprecation of Node.js 20 in hosted actions.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   test:
     name: Run tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     permissions:
       # Required by python-coverage-comment-action to store the coverage report
@@ -54,10 +59,28 @@ jobs:
 
       - name: Install dependencies
         if: steps.cache-venv.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction --with dev
+        # No --with/--only/--without flags — project uses PEP 735
+        # [dependency-groups], which Poetry 2.x handles with a bare
+        # `poetry install` (dev group installed by default).
+        run: poetry install --no-interaction
 
-      - name: Run tests
-        run: poetry run pytest
+      - name: Install dbus-run-session for D-Bus integration tests
+        run: sudo apt-get install -y --no-install-recommends dbus
+
+      - name: Run unit tests (no D-Bus)
+        run: |
+          poetry run pytest \
+            tests/core \
+            tests/plugins \
+            tests/daemon/test_http.py \
+            tests/daemon/test_plugin_manager_discovery.py \
+            tests/daemon/test_plugin_manager_lifecycle.py
+
+      - name: Run D-Bus integration tests under a private session bus
+        run: |
+          dbus-run-session -- poetry run pytest \
+            tests/daemon/test_service_core.py \
+            tests/integration
 
       - name: Upload coverage report
         if: always() && matrix.python-version == '3.13'

@@ -18,6 +18,12 @@ on:
 permissions:
   contents: write
 
+# Opt in to Node.js 24 for javascript actions (actions/checkout,
+# actions/upload-artifact, etc. still ship a Node 20 runtime). This is
+# required before GitHub enforces it in June 2026.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build:
     name: Build .deb on ubuntu ${{ matrix.ubuntu.version }} (${{ matrix.ubuntu.codename }})

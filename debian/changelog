@@ -1,3 +1,19 @@
+smartass (0.1.1-1) unstable; urgency=medium
+
+  * Fix systemd unit ExecStart path (/opt/smartass/bin/python, not /venv/bin).
+  * Fix tray: PySide6-compatible D-Bus wire format (JSON strings for complex
+    returns), theme-aware Weather tab (palette roles, not hardcoded palette()),
+    symbolic tray icon for dark/light theme support.
+  * Feat: reactive config — Core.SetConfig now notifies running plugins and
+    triggers immediate refresh; Plugin.RefreshNow added.
+  * Feat: richer Weather UI — hero card, feels-like, sunrise/sunset, UV,
+    precipitation, rain probability, 7-day grid with emojis and weekdays.
+  * Feat: Taskfile lifecycle commands (install-service, remove-service-*).
+  * Feat: GitHub Actions workflow to build on Ubuntu 22.04 / 24.04 / 25.10
+    and publish releases.
+
+ -- Saurabh Khanduja <saurabh@talonic.ai>  Wed, 22 Apr 2026 19:30:00 +0000
+
 smartass (0.1.0-1) unstable; urgency=medium
 
   * Initial release: MVP daemon + tray + Weather plugin.

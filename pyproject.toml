@@ -1,6 +1,6 @@
 [project]
 name = "smartass"
-version = "0.1.0"
+version = "0.1.1"
 description = "Smartass — desktop smart-assistant app for Ubuntu (tray + plugin host)"
 authors = [
     {name="Saurabh Khanduja", email="saurabh@talonic.ai"},
