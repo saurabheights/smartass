@@ -1,0 +1,128 @@
+name: Build Debian packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Publish a GitHub release (prerelease) from this run"
+        type: boolean
+        default: false
+      release_tag:
+        description: "Tag name for the release (default: ci-<run-number>)"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build .deb on ubuntu ${{ matrix.ubuntu.version }} (${{ matrix.ubuntu.codename }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu:
+          - { version: "22.04", codename: "jammy" }
+          - { version: "24.04", codename: "noble" }
+          - { version: "25.10", codename: "questing" }
+    container:
+      image: ubuntu:${{ matrix.ubuntu.version }}
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Install git (needed by actions/checkout inside a bare ubuntu container)
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git ca-certificates curl
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Debian build tools
+        run: |
+          apt-get install -y --no-install-recommends \
+            devscripts dh-virtualenv debhelper \
+            python3-dev python3-venv python3-pip \
+            build-essential lintian fakeroot
+
+      - name: Show tool versions
+        run: |
+          debuild --version | head -1
+          dh_virtualenv --version
+          python3 --version
+
+      - name: Build the .deb
+        run: |
+          debuild -us -uc -b
+
+      - name: Rename artifact with codename suffix
+        run: |
+          mkdir -p dist
+          for f in ../smartass_*_amd64.deb; do
+            base=$(basename "$f" .deb)
+            cp "$f" "dist/${base}_${{ matrix.ubuntu.codename }}.deb"
+          done
+          ls -la dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: smartass-${{ matrix.ubuntu.codename }}
+          path: dist/*.deb
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publish GitHub release
+    needs: build
+    if: |
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.release)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifacts into dist/
+        run: |
+          mkdir -p dist
+          find artifacts -name '*.deb' -exec cp {} dist/ \;
+          ls -la dist/
+
+      - name: Resolve tag + release name
+        id: names
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+            name="smartass ${tag}"
+            prerelease="false"
+          else
+            tag="${{ inputs.release_tag }}"
+            if [[ -z "$tag" ]]; then
+              tag="ci-${GITHUB_RUN_NUMBER}"
+            fi
+            name="smartass ${tag} (CI build)"
+            prerelease="true"
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${prerelease}" >> "$GITHUB_OUTPUT"
+
+      - name: Create / update release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.deb
+          tag_name: ${{ steps.names.outputs.tag }}
+          name: ${{ steps.names.outputs.name }}
+          prerelease: ${{ steps.names.outputs.prerelease }}
+          draft: false
+          generate_release_notes: true
+          make_latest: ${{ steps.names.outputs.prerelease == 'false' }}
