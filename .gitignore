@@ -664,3 +664,11 @@ poetry.toml
 
 # LSP config files
 pyrightconfig.json
+
+# Debian build artifacts (produced by debuild in-tree)
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/*.debhelper
+debian/*.substvars
+debian/smartass/
