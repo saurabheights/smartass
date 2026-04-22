@@ -26,6 +26,13 @@ ICON_CANDIDATES = [
 
 
 def _load_icon() -> QIcon:
+    # Prefer the *symbolic* themed icon — GNOME auto-recolors single-color
+    # symbolic icons to match the panel foreground (dark/light theme aware).
+    # Falls back to the regular themed icon and then to shipped SVGs.
+    for name in ("ai.talonic.smartass-symbolic", "ai.talonic.smartass"):
+        icon = QIcon.fromTheme(name)
+        if not icon.isNull():
+            return icon
     for p in ICON_CANDIDATES:
         if p.is_file():
             return QIcon(str(p))

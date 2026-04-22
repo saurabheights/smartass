@@ -18,6 +18,8 @@ override_dh_install:
 	dh_install
 	install -D -m 0644 assets/icons/smartass.svg \
 	  debian/smartass/usr/share/icons/hicolor/scalable/apps/ai.talonic.smartass.svg
+	install -D -m 0644 assets/icons/smartass-symbolic.svg \
+	  debian/smartass/usr/share/icons/hicolor/symbolic/apps/ai.talonic.smartass-symbolic.svg
 
 # PySide6 ships a self-contained Qt runtime inside the bundled venv.
 # dpkg-shlibdeps cannot resolve its cross-plugin references. Skip it —
