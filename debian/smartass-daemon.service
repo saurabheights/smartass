@@ -5,7 +5,7 @@ After=graphical-session.target
 [Service]
 Type=dbus
 BusName=ai.talonic.Smartass
-ExecStart=/opt/smartass/venv/bin/python -m smartass.daemon
+ExecStart=/opt/smartass/bin/python -m smartass.daemon
 Restart=on-failure
 RestartSec=3
 Environment=PYTHONUNBUFFERED=1
