@@ -17,6 +17,10 @@ jobs:
     name: Run tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
+      # Don't cancel the whole matrix when one Python version fails —
+      # they're independent runs and a failure on 3.13 shouldn't wipe
+      # out in-flight 3.10/3.11/3.12 results.
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
 

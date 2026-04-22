@@ -63,6 +63,10 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 data_file = '.cache/.coverage'
+# Required by the coverage-comment GitHub action (and generally safer
+# for sharing .coverage across hosts — absolute paths reference the
+# specific runner's workdir and won't resolve elsewhere).
+relative_files = true
 
 [tool.coverage.report]
 skip_empty = true
