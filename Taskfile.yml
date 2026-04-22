@@ -50,3 +50,52 @@ tasks:
     desc: "Run mypy"
     cmd: docker run --rm -v `pwd`:/code {{.DEV_IMAGE_NAME}}:{{.IMAGE_VERSION}} mypy {{.PROJECT_DIR}}/
 
+  # ---- service lifecycle ----
+
+  build-deb:
+    desc: "Build the .deb via debuild; artifact lands at ../smartass_*_amd64.deb"
+    cmds:
+      - debuild -us -uc -b
+      - ls -la "$(dirname $(pwd))/smartass_*.deb" 2>/dev/null || ls -la ../smartass_*.deb
+
+  install-service:
+    desc: "Install (or reinstall) the smartass .deb, start the daemon, launch the tray"
+    cmds:
+      - |
+        DEB="$(ls -t ../smartass_*_amd64.deb 2>/dev/null | head -1)"
+        if [ -z "$DEB" ]; then
+          echo "No .deb found in parent dir. Run 'task build-deb' first." >&2
+          exit 1
+        fi
+        echo "Installing $DEB ..."
+        sudo dpkg -i "$DEB"
+      - systemctl --user daemon-reload
+      - systemctl --user enable --now smartass-daemon.service
+      - pkill -f 'smartass.tray' 2>/dev/null || true
+      - sleep 1
+      - |
+        mkdir -p "$HOME/.cache/smartass"
+        setsid nohup /opt/smartass/bin/python -m smartass.tray \
+          > "$HOME/.cache/smartass/tray.log" 2>&1 < /dev/null &
+        disown || true
+        echo "tray launched in background; log: $HOME/.cache/smartass/tray.log"
+      - systemctl --user status smartass-daemon.service --no-pager || true
+
+  remove-service-keep-data:
+    desc: "Stop + uninstall smartass; keep user config/data in ~/.config and ~/.local/share"
+    cmds:
+      - pkill -f 'smartass.tray' 2>/dev/null || true
+      - systemctl --user disable --now smartass-daemon.service 2>/dev/null || true
+      - sudo apt-get remove -y smartass
+      - echo "Service removed. User data retained at ~/.config/smartass and ~/.local/share/smartass."
+
+  remove-service-with-all-data:
+    desc: "Stop + purge smartass + delete all user config/data/cache for the app"
+    prompt: "This will permanently delete ~/.config/smartass, ~/.local/share/smartass, and ~/.cache/smartass. Continue?"
+    cmds:
+      - pkill -f 'smartass.tray' 2>/dev/null || true
+      - systemctl --user disable --now smartass-daemon.service 2>/dev/null || true
+      - sudo apt-get purge -y smartass
+      - rm -rf "$HOME/.config/smartass" "$HOME/.local/share/smartass" "$HOME/.cache/smartass"
+      - echo "Service and all user data removed."
+
